@@ -1,0 +1,4 @@
+[console_scripts]
+caviar = caviar.caviar:main
+caviar_gui = caviar.gui:main
+
