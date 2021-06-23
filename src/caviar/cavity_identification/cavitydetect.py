@@ -3,7 +3,7 @@
 This module aims at identifying cavities. It contains a modified
 version of the LigSiteCS algorithm
 The protein is projected onto a cubic regular 3D grid (cf gridtools.py).
-Since the grid is regular, most of the work is not made in the Cartesian 3D space, but 
+Since the grid is regular, most of the work is not made in the Cartesian 3D space, but
 is projected on the indices of the grid (a mathematical rule can be made to identify
 the indices of the neighbors of a certain index point of the grid).
 Characteristics of the grid points are projected in an array, grid_decomposition.
@@ -23,13 +23,13 @@ That gives a burial between 0 (no protein grid point within radius_cube around t
 of interest) and 14 (protein grid points are found in the 14 directions around the grid point
 of interest within radius_cube). The function performing this task is "set_burial_scandir_np".
 Grid points that have a burial >= min_burial (9 by default) are kept as potential grid points.
-A second pass is made within the same function. If a cavity is large, it can very well be that 
+A second pass is made within the same function. If a cavity is large, it can very well be that
 some cavity grid points "in the middle of the cavity" are not in direct contact with the protein,
-but enclosed enough within cavity grid points and should be part of the cavity. This scenario is 
+but enclosed enough within cavity grid points and should be part of the cavity. This scenario is
 investigated using the same rational than aforementioned, except that instead of checking if a
 solvent point is in contact with the protein in cubic directions, here, its contact with cavity
 grid points ("2") is checked, within "cube_radius_enc" and "min_burial_enc".
-At the end, the indices of grid points with a buriedness >= min_burial in grid_decomposition 
+At the end, the indices of grid points with a buriedness >= min_burial in grid_decomposition
 are assigned values between min_burial and 14 (their buriedness), or 2 ("middle cavity points")
 (in opposition to 0 for solvent and 1 for protein)
 
@@ -40,7 +40,7 @@ Only cavities of size > min_points (80 by default ~ volume of benzene) are ultim
 
 The final function filter_cavities calculates a cavity score:
 (size_cav/100)*(median buriedness)*(7th quantile of buriedness value)/100
-in order to rank cavities. It also filters out cavities that have fewer than X% (30% within quantile = 0.7) grid points 
+in order to rank cavities. It also filters out cavities that have fewer than X% (30% within quantile = 0.7) grid points
 with a buriedness >= min_burial_q = 11 and prints out information (size of the cavity in grid points, median
 buriedness, 7th quantile of buriedness, score)
 
@@ -53,7 +53,7 @@ import networkx as nx
 from .gridtools import get_index_of_coor_list, list_transform_indices, get_transformation_vectors
 from caviar.cavity_characterization.gridpoint_properties import trim_cavity_bylocalweight
 # from bisect import bisect_left
-#import time 
+#import time
 
 __all__ = ['wrapper_early_cav_identif']
 
@@ -78,9 +78,11 @@ def find_protein_points_variablevolume(gridpoints, protselection,
 	with open(file_sizes) as all_sizes:
 		for line in all_sizes:
 			if len(line.split()) == 2:
-				new_sel = protselection.select(f"element {line.split()[0]}")
-				if new_sel:
-					new_sel_coord = new_sel.getCoords()
+				new_sel = protselection.select_by_element_string(
+					element_string=line.split()[0]
+				)
+				if new_sel.get_num_atoms() > 0:
+					new_sel_coord = new_sel.get_coords()
 					dist_range = float(line.split()[1]) + size_probe
 					# This function takes 77-95% of the CPU time (expected). Doesn't scale well
 					dist_max = gridset.print_indices_within(new_sel_coord, dist_range)
@@ -94,16 +96,20 @@ def find_protein_points_variablevolume(gridpoints, protselection,
 
 	# Generate a list of grid points. If indice = 0 => solvent
 	# If indice = 1 => protein point
-	# and later, indice = 2 => cavity point 
+	# and later, indice = 2 => cavity point
 	grid_decomposition = np.zeros(shape=len(gridpoints), dtype = int)
 	grid_decomposition[grid_protein] = 1
-
 	return grid_protein, grid_solv, grid_decomposition
 
-def filter_out_bulksolvent(selection_coords, grid, grid_solv, maxdistance = 5.0):
+def filter_out_bulksolvent(
+	selection_coords,
+	grid,
+	grid_solv,
+	maxdistance = 5.0,
+):
 	"""
 	We generate a cubic grid around an irregular shaped protein
-	Thus there are many grid points that are very far from the protein and 
+	Thus there are many grid points that are very far from the protein and
 	eat computational time for no reason
 	This function is simply discarding bulk solvent points, ie, grid points
 	that are above a threshold (8A by default) to any protein point.
@@ -118,13 +124,22 @@ def filter_out_bulksolvent(selection_coords, grid, grid_solv, maxdistance = 5.0)
 	return ori_indices_inrange
 
 #@profile
-def set_burial_scandir_np(grid_solv, grid_decomposition, grid_protein, grid_shape,
-	radius_cube = 5, min_burial = 9, startingpoint_radius = 3, radius_cube_enc = 4, min_burial_enc = 7,
-	startingpoint_radius_enc = 1):
+def set_burial_scandir_np(
+	grid_solv,
+	grid_decomposition,
+	grid_protein,
+	grid_shape,
+	radius_cube = 5,
+	min_burial = 9,
+	startingpoint_radius = 3,
+	radius_cube_enc = 4,
+	min_burial_enc = 7,
+	startingpoint_radius_enc = 1,
+):
 	"""
 	This function sets the burial level of solvent grid points. If this burial is above
 	min_burial, the point is considered as potential cavity point. It works in two steps.
-	The first one investigates the number of protein contacts in the 14 cubic directions 
+	The first one investigates the number of protein contacts in the 14 cubic directions
 	around a grid point of interest (up to radius_cube cubic gridspacing).
 	Then it tags as "2" the points with a burial > min_burial in grid_decomposition.
 	The second step is to identify points that are in the "middle" of cavities: they are
@@ -135,8 +150,12 @@ def set_burial_scandir_np(grid_solv, grid_decomposition, grid_protein, grid_shap
 	if radius_cube <= startingpoint_radius:
 		print("radius_cube should be strictly greater than startingpoint_radius")
 	# Step 1, generate all the directions to scan
-	transform_vectors = get_transformation_vectors(radius_cube = radius_cube, startingpoint = startingpoint_radius)
-	transform_ind = list_transform_indices(transform_vectors = transform_vectors, grid_shape = grid_shape)
+	transform_vectors = get_transformation_vectors(
+		radius_cube = radius_cube, startingpoint = startingpoint_radius
+	)
+	transform_ind = list_transform_indices(
+		transform_vectors = transform_vectors, grid_shape = grid_shape
+	)
 
 	# Step 2 generate all indices in the 14 directions * radius_cube -3
 	allindices = []
@@ -146,9 +165,9 @@ def set_burial_scandir_np(grid_solv, grid_decomposition, grid_protein, grid_shap
 			indices_1dir.append(grid_solv + transf)
 		allindices.append(indices_1dir)
 		indices_1dir = []
-	
+
 	combined_indices = np.array(allindices)
-	
+
 	# Identify which of these indices exist in grid_protein
 	# This is the function that takes most of the time
 	# Takes 48% of the time (expected, the other half is the second call to isin)
@@ -174,17 +193,21 @@ def set_burial_scandir_np(grid_solv, grid_decomposition, grid_protein, grid_shap
 	grid_solv_tmp = np.argwhere(grid_decomposition == 0)
 	# Now repeat the same exact procedure with grid_cav_tmp instead of
 	# grid_protein and grid_solv_tmp instead of grid_solv
-	
-	transform_vectors_enc = get_transformation_vectors(radius_cube = radius_cube_enc,
-		startingpoint = startingpoint_radius_enc)
-	transform_ind_enc = list_transform_indices(transform_vectors = transform_vectors_enc, grid_shape = grid_shape)
+
+	transform_vectors_enc = get_transformation_vectors(
+		radius_cube = radius_cube_enc,
+		startingpoint = startingpoint_radius_enc
+	)
+	transform_ind_enc = list_transform_indices(
+		transform_vectors = transform_vectors_enc, grid_shape = grid_shape
+	)
 	allindices = []
 	indices_1dir = []
 	for direction in transform_ind:
 		for transf in direction:
 			indices_1dir.append(grid_solv_tmp + transf)
 		allindices.append(indices_1dir)
-		indices_1dir = []	
+		indices_1dir = []
 	combined_indices = np.array(allindices)
 	# Takes 44% of the time (expected, the other half is the first call to isin)
 	truth = np.isin(combined_indices, grid_cav_tmp)
@@ -198,8 +221,16 @@ def set_burial_scandir_np(grid_solv, grid_decomposition, grid_protein, grid_shap
 	return grid_decomposition
 
 #@profile
-def generate_graph(grid_decomposition, gridpoints, grid_min, grid_shape, gridspace = 1.0,
-	min_degree = 3, radius = 2, score = 500):
+def generate_graph(
+	grid_decomposition,
+	gridpoints,
+	grid_min,
+	grid_shape,
+	gridspace = 1.0,
+	min_degree = 3,
+	radius = 2,
+	score = 500,
+):
 	"""
 	Generate a graph from cavity points. It connects nodes if they are within gridspace
 	distance. It removes self loops and bridges.
@@ -213,42 +244,62 @@ def generate_graph(grid_decomposition, gridpoints, grid_min, grid_shape, gridspa
 	# Find cavity points indices and extract their coordinates
 	cavity_point = np.where(grid_decomposition > 1)[0]
 	cav_coor = gridpoints[cavity_point]
+	# cav_coor = gridpoints
 
-	trimmed_cavs = trim_cavity_bylocalweight(cav_coor, grid_min, grid_shape, grid_decomposition,
-                                               radius, score)
+	# cav_decomp = []
+	# for gp, gd in zip(gridpoints, grid_decomposition):
+	# 	cav_decomp.append(np.array([gp[0], gp[1], gp[2], gd]))
 
-	setcav = SetOfPoints(trimmed_cavs)
+	# trimmed_cavs = trim_cavity_bylocalweight(
+	# 	cav_coor,
+	# 	grid_min,
+	# 	grid_shape,
+	# 	grid_decomposition,
+	# 	radius,
+	# 	score,
+	# )
+
+	setcav = SetOfPoints(cav_coor)
 
 	diag = gridspace + 0.1# +0.1 because floating point #*np.sqrt(3) was for the diagonal connections
 	# but it ended up overspanning
-	if len(trimmed_cavs) == 0:
+	if len(cav_coor) == 0:
 		return None, None
-	dist_mat = setcav.print_indices_within(trimmed_cavs, diag, turnon = False)
-	list_edges = dist_mat[["i","j"]]
+	dist_mat = setcav.print_indices_within(
+		cav_coor,
+		diag,
+		turnon = False,
+	)
+	list_edges = dist_mat[["i", "j"]]
 	G = nx.Graph() # Initialize graph
 	G.add_edges_from(list_edges)
 	# Remove self edges
-	G.remove_edges_from(nx.selfloop_edges(G)) 
+	G.remove_edges_from(nx.selfloop_edges(G))
 
 	# Remove nodes with few connections
 	remove = [node for node,degree in dict(G.degree()).items() if degree < min_degree]
-	G.remove_nodes_from(remove) 
+	G.remove_nodes_from(remove)
 	# List and remove bridges. There should probably not be any?
 	bridges = list(nx.bridges(G))
 	G.remove_edges_from(bridges)
 
-	return G, trimmed_cavs
+	return G, cav_coor
 
 def get_large_cavities_from_graph(G, cav, min_points = 60):
 	"""
 	Returns a list of cavities coordinates from the graph, with a minimal size in number of points
 	min_points is defaulted to 80, which is a bit smaller than the size of a benzene molecule (88A3)
 	"""
-	large_cavities = [x for x in nx.connected_components(G) if len(x) > min_points]
+	large_cavities = [
+		x for x in nx.connected_components(G)
+		if len(x) > min_points
+	]
 	list_cavs_coords = []
 	for cavity in large_cavities:
-		list_cavs_coords.append(np.take(a = cav, indices = list(cavity), axis = 0))
-	
+		list_cavs_coords.append(
+			np.take(a = cav, indices = list(cavity), axis = 0)
+		)
+
 	if len(list_cavs_coords) > 1: # deprecation with numpy 1.19
 		# https://numpy.org/doc/stable/release/1.19.0-notes.html#deprecate-automatic-dtype-object-for-ragged-input
 		array_cavs_coords = np.array(list_cavs_coords, dtype=object)
@@ -256,15 +307,23 @@ def get_large_cavities_from_graph(G, cav, min_points = 60):
 		array_cavs_coords = np.array(list_cavs_coords)
 	return array_cavs_coords
 
-def filter_cavities(array_cavs_coords, grid_decomposition, grid_min, grid_shape, gridspace = 1.0,
-	min_burial_q = 10, quantile = 0.8, maxsize = 3000):
+def filter_cavities(
+	array_cavs_coords,
+	grid_decomposition,
+	grid_min,
+	grid_shape,
+	gridspace = 1.0,
+	min_burial_q = 10,
+	quantile = 0.8,
+	maxsize = 3000,
+):
 	"""
 	Scores cavities ((size cavity/100)*(median buriedness)*(7th quantile buriedness)/100)
 	Exports data (size, median buriedness, 7th quantile buriedness, score)
-	Filters out cavities with less than 1-quantile % of points with a min_burial_q = 10 
+	Filters out cavities with less than 1-quantile % of points with a min_burial_q = 10
 	"""
 	cavid = 0
-	
+
 	cavs_curated = []
 	cavs_info = {}
 	for cavity in array_cavs_coords:
@@ -272,12 +331,13 @@ def filter_cavities(array_cavs_coords, grid_decomposition, grid_min, grid_shape,
 		cav_indices = get_index_of_coor_list(cavity, grid_min, grid_shape, gridspace)
 		median_bur = np.median(grid_decomposition[cav_indices])
 		q_7 = np.quantile(grid_decomposition[cav_indices], q = 0.7)
-		if np.quantile(grid_decomposition[cav_indices], q = quantile) > min_burial_q and size_cav < maxsize:
-			score = np.around((size_cav/100)*(median_bur)*(q_7)/100, decimals=1)
-			cavs_curated.append(cavity)
-			cavs_info[cavid] = [size_cav, median_bur, q_7, score]
-			#print(median_bur)
-			cavid += 1
+		# if np.quantile(grid_decomposition[cav_indices], q = quantile) > min_burial_q and size_cav < maxsize:
+		score = np.around((size_cav/100)*(median_bur)*(q_7)/100, decimals=1)
+		cavs_curated.append(cavity)
+		# cavs_info[cavid] = [size_cav, median_bur, q_7, score]
+		cavs_info[cavid] = grid_decomposition[cav_indices]
+		#print(median_bur)
+		cavid += 1
 
 	if len(cavs_curated) > 1: # deprecation with numpy 1.19
 		# https://numpy.org/doc/stable/release/1.19.0-notes.html#deprecate-automatic-dtype-object-for-ragged-input
@@ -289,42 +349,118 @@ def filter_cavities(array_cavs_coords, grid_decomposition, grid_min, grid_shape,
 	return cavs_cur, cavs_info
 
 
-def wrapper_early_cav_identif(grid, grid_min, grid_shape, selection_protein, selection_coords,
-	size_probe = 1.0, maxdistance = 6.0,
-	radius_cube = 4, min_burial = 8, radius_cube_enc = 3, min_burial_enc = 8, gridspace = 1.0, min_degree = 3,
-	radius = 2, trim_score = 500, min_points = 40, min_burial_q = 10, quantile = 0.8, maxsize = 3000):
+def wrapper_early_cav_identif(
+	name,
+	grid,
+	grid_min,
+	grid_shape,
+	selection_protein,
+	selection_coords,
+	size_probe = 1.0,
+	maxdistance = 6.0,
+	radius_cube = 4,
+	min_burial = 8,
+	radius_cube_enc = 3,
+	min_burial_enc = 8,
+	gridspace = 1.0,
+	min_degree = 3,
+	radius = 2,
+	trim_score = 500,
+	min_points = 40,
+	min_burial_q = 10,
+	quantile = 0.8,
+	maxsize = 3000,
+):
 	"""
 	In order to lower the overhead from importing modules in main.py
 	we combine all of the afore-coded functions as one wrapper
 	"""
+
+	print(grid.shape)
+	inhull = set(
+		get_gridpoint_in_protein_convexhull(selection_coords, grid)
+	)
 	# Identify points of the grid that are within the surface of the protein
-	grid_protein, grid_solv, grid_decomposition_0 = find_protein_points_variablevolume(gridpoints = grid,
-		protselection = selection_protein, size_probe =  size_probe)
+	grid_protein, grid_solv, grid_decomposition_0 = find_protein_points_variablevolume(
+		gridpoints = grid,
+		protselection = selection_protein,
+		size_probe =  size_probe,
+	)
+	print(grid_protein.shape, grid_solv.shape, grid_decomposition_0.shape)
+	print(grid_solv[:10])
+	convex_solv = [i for i in grid_solv if i in inhull]
+	thiscav = np.take(a=grid, indices=list(convex_solv), axis=0)
+	print(thiscav.shape)
+	content = [f'{len(thiscav)}\n\n']
+	for coord in thiscav:
+		x, y, z = coord
+		content.append(
+			f'C {x:f} {y:f} {z:f}\n'
+		)
+	with open(f'{name}_hull.xyz', 'w') as f:
+		f.write(''.join(content))
+	return None, None, None, None
+
+
+
+
+
+
+
 	## Filter out bulk solvent, ie solvent grid points that are > args.maxdistance from the protein
 	## due to the cubic shape of the box
-	nonbulk_gridsolv = filter_out_bulksolvent(selection_coords = selection_coords, grid = grid,
-		grid_solv = grid_solv, maxdistance = maxdistance)
+	nonbulk_gridsolv = filter_out_bulksolvent(
+		selection_coords = selection_coords,
+		grid = grid,
+		grid_solv = grid_solv,
+		maxdistance = maxdistance,
+	)
 	# Most time consuming function (less now that we trim out bulk solvent)
 	# Scans solvent grid points to set the buriedness of all grid points and identify
 	# potential cavity grid points
-	grid_decomposition = set_burial_scandir_np(grid_solv = nonbulk_gridsolv, grid_decomposition = grid_decomposition_0,
-		grid_protein = grid_protein, grid_shape = grid_shape, radius_cube = radius_cube,
-		min_burial = min_burial, radius_cube_enc = radius_cube_enc, min_burial_enc = min_burial_enc)
+	grid_decomposition = set_burial_scandir_np(
+		grid_solv = nonbulk_gridsolv,
+		grid_decomposition = grid_decomposition_0,
+		grid_protein = grid_protein,
+		grid_shape = grid_shape,
+		radius_cube = radius_cube,
+		min_burial = min_burial,
+		radius_cube_enc = radius_cube_enc,
+		min_burial_enc = min_burial_enc,
+	)
+	print('gd', grid_decomposition)
 	# Generate a graph from potential grid points. Filter out self loops, bridges, not well connected nodes
 	# (with min_degree)
-	G, cav = generate_graph(grid_decomposition, grid, grid_min, grid_shape, gridspace,
-		min_degree, radius, trim_score)
+	G, cav = generate_graph(
+		grid_decomposition,
+		grid,
+		grid_min,
+		grid_shape,
+		gridspace,
+		min_degree,
+		radius,
+		trim_score,
+	)
 	if G == None:
+		raise ValueError('G is None')
 		return None, None, None
 	# Filter out small cavities
-	array_cavs_coords = get_large_cavities_from_graph(G, cav, min_points = min_points * 1/gridspace) # adapt number of points with gridspace
+	# array_cavs_coords = get_large_cavities_from_graph(
+	# 	G, cav, min_points = min_points * 1/gridspace
+	# ) # adapt number of points with gridspace
+
+	array_cavs_coords, array_cavs_coords_hull = get_large_cavities_from_graph_add_fromhull(
+		G, cav, grid, grid_decomposition, min_points = min_points * 1/gridspace
+	)
+
 	# Score cavities, filter out cavities that have less that 1-quantile grid points
 	# buried with a min_burial_q
-	cavities, cavities_info = filter_cavities(array_cavs_coords, grid_decomposition, grid_min,
-		grid_shape, gridspace, min_burial_q, quantile)
+	cavities, cavities_info = filter_cavities(
+		array_cavs_coords, grid_decomposition, grid_min,
+		grid_shape, gridspace, min_burial_q, quantile
+	)
 
-
-	return cavities, cavities_info, grid_decomposition
+	return cavities, cavities_info, grid_decomposition, array_cavs_coords_hull
 
 
 
@@ -336,7 +472,7 @@ def point_in_hull(point, hull, tolerance=1e-12):
 	against each facet and surface normal to see which side it is on.
 	The surface normals for each facet is access by hull.equations (3 first column,
 	and the offset is in the 4th column).
-	A point that is outside any convex hull triangle is outside the entire convex hull. 
+	A point that is outside any convex hull triangle is outside the entire convex hull.
 	"""
 	if np.any(np.dot(hull.equations[:,:-1], point) + hull.equations[:,-1] >= tolerance):
 		return "it's out"
@@ -354,7 +490,7 @@ def get_gridpoint_in_protein_convexhull(selection_coords, grid_solv_coords):
 	"""
 	from scipy.spatial import ConvexHull # Could import generally but since it's not used...
 	hull = ConvexHull(selection_coords)
-	
+
 	idx=0
 	solv_idx_inhull = []
 	for point in grid_solv_coords:
@@ -364,12 +500,19 @@ def get_gridpoint_in_protein_convexhull(selection_coords, grid_solv_coords):
 
 	return solv_idx_inhull
 
-def set_burial_scandir_onepass(grid_solv, grid_decomposition, grid_protein, grid_shape,
-	radius_cube = 5, min_burial = 9, startingpoint_radius = 3):
+def set_burial_scandir_onepass(
+	grid_solv,
+	grid_decomposition,
+	grid_protein,
+	grid_shape,
+	radius_cube = 5,
+	min_burial = 9,
+	startingpoint_radius = 3,
+):
 	"""
 	This function sets the burial level of solvent grid points. If this burial is above
 	min_burial, the point is considered as potential cavity point. It works in two steps.
-	The first one investigates the number of protein contacts in the 14 cubic directions 
+	The first one investigates the number of protein contacts in the 14 cubic directions
 	around a grid point of interest (up to radius_cube cubic gridspacing).
 	Then it tags as "2" the points with a burial > min_burial in grid_decomposition.
 	This function doesn't do a second pass. It is meant to be used with get_large_cavities_from_graph_add_fromhull
@@ -390,9 +533,9 @@ def set_burial_scandir_onepass(grid_solv, grid_decomposition, grid_protein, grid
 			indices_1dir.append(grid_solv + transf)
 		allindices.append(indices_1dir)
 		indices_1dir = []
-	
+
 	combined_indices = np.array(allindices)
-	
+
 	# Identify which of these indices exist in grid_protein
 	# This is the function that takes most of the time
 	# Takes 48% of the time (expected, the other half is the second call to isin)
@@ -446,7 +589,7 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 
 #def export_dummy_pdb_points(solv, prot, cav, array_cavs_coords):
 #	"""
-#	For visualization purposes: exports a pdb containing 
+#	For visualization purposes: exports a pdb containing
 #	"O" atoms for the solvent grid and "N" atoms for the grid
 #	points enclosed in the protein
 #	"""
@@ -509,16 +652,16 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 # 	grid_protein = np.unique(grid_protein_withdupli)
 # 	grid_indices = np.arange(start = 0, stop = len(gridpoints), step = 1, dtype=int)
 # 	grid_solv = np.delete(grid_indices, np.array(grid_protein, dtype=int), axis=0)
-# 
-# 	return grid_protein, grid_solv 
+#
+# 	return grid_protein, grid_solv
 
 ## def set_burial(gridpoints, protpoints, radius_shell = 5.5):
 ## 	"""
 ## 	Returns the number of atomic coordinates within a solvation shell
 ## 	"""
 ## 	boolarr = all_dist < radius_shell
-## 	# this gives an array for which each indice correspond to 
-## 	# a grid point and contains the number of protein coordinates 
+## 	# this gives an array for which each indice correspond to
+## 	# a grid point and contains the number of protein coordinates
 ## 	# within radius_shell
 ## 	list_burial = np.count_nonzero(boolarr, axis=1)
 ## 	return list_burial
@@ -533,8 +676,8 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #	unique, counts = np.unique(matrix, return_counts = True)
 #	list_burial = np.zeros(len(gridpoints), dtype = np.int32)
 #	np.put(a = list_burial, ind = unique, v = counts)
-#	# this gives a list for which each indice correspond to 
-#	# a grid point and contains the number of protein coordinates 
+#	# this gives a list for which each indice correspond to
+#	# a grid point and contains the number of protein coordinates
 #	# within radius_shell
 #	return list_burial
 
@@ -567,20 +710,20 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #			if np.any(np.in1d(idx_lst, grid_protein, assume_unique=True)):
 #				burial += 1
 #				continue
-#		
+#
 #		if burial >= min_burial:
 #			dict_burial[grid_solv[index]] = burial
 #		index += 1
 #
 #	return dict_burial
 
-#def find_cavity_points_new(grid_decomposition, grid_shape, grid_solv, 
+#def find_cavity_points_new(grid_decomposition, grid_shape, grid_solv,
 #						   gridspace = 1.0, min_burial = 9, radius_cube = 5,
 #						   radius_cube_enc = 4, min_burial_enc = 7, startingpoint_radius = 1):
 #	"""
 #	Returns potential cavity points: if more than min_prot_contacts within
 #	radius_shell of cavity point (excluding protein points)
-#	
+#
 #	Returns two lists (of indices), one with "full solvent" points
 #	and one with potential cavity points.
 #	Then, the points need to be clustered in order to identify cavities
@@ -628,7 +771,7 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #				elif grid_decomposition[investigated_gridpoint_ind]:
 #					burial += 1
 #					break
-#	
+#
 #		if burial >= min_burial:
 #				grid_decomposition[idx] = 2
 #
@@ -645,14 +788,14 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #	# Step 1, generate all the directions to scan
 #	transform_vectors = get_transformation_vectors(gridspace, radius_cube_enc, startingpoint_radius)
 #	transform_ind = list_transform_indices(transform_vectors, grid_shape)
-#	
+#
 #	index = 0
 #	still_solvent_points = []
 #	for x in grid_decomposition:
 #		if x == 0:
 #			still_solvent_points.append(index)
 #		index += 1
-#	
+#
 #	maxval = len(grid_decomposition)
 #	for idx in still_solvent_points:
 #		burial = 0
@@ -668,7 +811,7 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #				elif grid_decomposition[investigated_gridpoint_ind] == 2:
 #					burial += 1
 #					break
-#	
+#
 #		if burial >= min_burial_enc:
 #				grid_decomposition[idx] = 2
 #
@@ -680,7 +823,7 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #	"""
 #	Returns potential cavity points: if more than min_prot_contacts within
 #	radius_shell of cavity point (excluding protein points)
-#	
+#
 #	Returns two lists (of indices), one with "full solvent" points
 #	and one with potential cavity points.
 #	Then, the points need to be clustered in order to identify cavities
@@ -715,7 +858,7 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #	"""
 #	Returns potential cavity points: if more than min_prot_contacts within
 #	radius_shell of cavity point (excluding protein points)
-#	
+#
 #	Returns two lists (of indices), one with "full solvent" points
 #	and one with potential cavity points.
 #	Then, the points need to be clustered in order to identify cavities
@@ -723,7 +866,7 @@ def get_large_cavities_from_graph_add_fromhull(G, cav, grid, grid_decomposition,
 #	# grid_indices = np.arange(start = 0, stop = len(gridpoints), step = 1, dtype=int)
 #	# First pass between non protein grid points and protein
 #	dict_burial = set_burial_scandir(gridpoints, grid_solv, grid_protein, grid_min, grid_shape, radius_cube, gridspace)
-#	whonotsolvent = [key for key, value in dict.items() if value >= 9] 
+#	whonotsolvent = [key for key, value in dict.items() if value >= 9]
 #	# Needs to be related to original order in grid_indices
 #	ori_whonotsolv = grid_solv[whonotsolvent]
 #	solvent_around = np.setdiff1d(grid_solv, ori_whonotsolv, assume_unique = True)

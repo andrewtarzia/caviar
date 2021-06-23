@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 This module contains tools that characterize grid point properties
-The most important function is set_pharmacophore_type that scans neighbors of 
+The most important function is set_pharmacophore_type that scans neighbors of
 cavity grid points for setting the pharmacophore type of the grid point
 export_hydrophobicity calculates the proportion of hydrophobic (aliphatic
 or aromatic) grid points in the cavity
-combine_filterhydro filters out cavities with an hydrophobicity above 
+combine_filterhydro filters out cavities with an hydrophobicity above
 a threshold and combine some information
-check_protein_res 
+check_protein_res
 """
 
 from caviar.prody_parser.atomic.select import *
@@ -27,20 +27,20 @@ def set_pharmacophore_type(cavities, selection_protein, selection_coords):
 	The grid points are aliphatic, aromatic, donor, acceptor, doneptor (both donor/acceptor),
 	negative, positive, CYS, HIS, metal
 	It assigns the type from the closest protein atom, with a max distance of 5A
-	In order to include some fuzziness, it actually detects the 3 closest neighbors and 
+	In order to include some fuzziness, it actually detects the 3 closest neighbors and
 	assigns a triplet of types from the 3 closest neighbors within 5A (if > 5A => type 0)
 	Unlike the previous version, this one doesnt include any threshold distance within these 5A
-	Otherwise that would be a loss of time within the loops, and the fuzziness should somehow 
+	Otherwise that would be a loss of time within the loops, and the fuzziness should somehow
 	reduce potential errors.
 	The idea is to have a main pp type (the first value of the triplet), and 2 neighboring values
-	
+
 	Types are assigned as integers: 0 for none, and starts at 2 for aliphatic, with a final
 	of 11 for metals, in the same order as described earlier
 	Returns an array of arrays (array of cavities). Each array contains the pharmacophore integers at each indice of
 	the cavity point from the input data "cavities".
 	"""
 
-	# Select the different pharmacophores 
+	# Select the different pharmacophores
 	aliphatic_atoms_sel = selection_protein.select("(resname ALA and (name C or name CA or name CB)) or (resname ARG and (name C or name CA or name CB or name CG or name CD)) or (resname ASN and (name C or name CA or name CB or name CG)) or (resname ASP and (name C or name CA or name CB)) or (resname CYS and (name C or name CA or name CB)) or (resname GLN and (name C or name CA or name CB or name CG or name CD)) or (resname GLU and (name C or name CA or name CB or name CG)) or (resname GLY and (name C or name CA)) or (resname HIS and (name C or name CA or name CB)) or (resname ILE and (sidechain or name C or name CA)) or (resname LEU and (sidechain or name C or name CA)) or (resname LYS and (name C or name CA or name CB or name CG or name D)) or (resname MET and (sidechain or name C or name CA)) or (resname PHE and (name C or name CA or name CB)) or (resname PRO and (name C or name CA or name CD or name CB or name CG or name N)) or (resname SER and (name C or name CA or name CG)) or (resname THR and (name C or name CA or name CB or name CG2)) or (resname TRP and (name C or name CA or name CB)) or (resname TYR and (name C or name CA or name CB)) or (resname VAL and (sidechain or name C or name CA))")
 	aromatic_atoms_sel = selection_protein.select("(resname PHE and (name CG or name CD1 or name CE1 or name CZ or name CE2 or name CD2)) or (resname TYR and (name CG or name CD1 or name CE1 or name CZ or name CE2 or name CD2)) or (resname TRP and (name CG or name CD1 or name CE2 or name CD2 or name CE3 or name CZ3 or name CH2 or name CZ2))")
 	donor_atoms_sel = selection_protein.select("(resname TRP and (name NE1)) or (name N and not resname PRO)")
@@ -52,13 +52,13 @@ def set_pharmacophore_type(cavities, selection_protein, selection_coords):
 	his_atoms_sel = selection_protein.select("(resname HIS and (name CG or name ND1 or name CD2 or name NE2 or name CE1))")
 	metal_atoms_sel = selection_protein.select("resname CO or resname ZN or resname MG or resname FE or resname GA or resname IN or resname NI or resname RE or resname PB or resname AS or resname BE or resname CU or resname V or resname AL or resname MN or resname CA")
 
-	
+
 	# Store their pharmacophore types as their indices in an array
 	arrays_prot_pharmatypes = np.zeros(len(selection_coords)+1, dtype="i")
 	# getIndices from prody only returns the original indices
-	# from the PDB file and not 
+	# from the PDB file and not
 	list_protindices = selection_protein.getIndices()
-	
+
 	arrays_prot_pharmatypes[np.in1d(list_protindices, aliphatic_atoms_sel.getIndices(), assume_unique=True).nonzero()[0]] = 1
 	# Bugged once because no aromatic atoms?
 	try:
@@ -103,18 +103,18 @@ def set_pharmacophore_type(cavities, selection_protein, selection_coords):
 	# Add a none cavity point for when the tree query later returns a dummy
 	# index when distances are > threshold (query returns this value as dummy index when there is not "hit" within dist)
 	arrays_prot_pharmatypes[len(selection_coords)] = 0
-	# Identify grid points within distance of 
+	# Identify grid points within distance of
 	# protein points with the aforementioned grid types
 	cav_properties = []
 	for cav in cavities:
 		# Generate a list of 0 corresponding to cavity point indices
 		cav_indices = np.zeros(shape=(len(cav), 3), dtype = "i")
-		
+
 		tree = cKDTree(selection_coords, compact_nodes = False, balanced_tree = False)
 		# Here we find the list of the 3 closest neighbors
 
 		dist, prot_indices = tree.query(cav, k = 3, distance_upper_bound = 5.0)
-		
+
 		cav_indices = arrays_prot_pharmatypes[prot_indices]
 
 		cav_properties.append(cav_indices)
@@ -134,7 +134,7 @@ def get_local_asph_point(point, cavity_coords, grid, grid_min, grid_shape, radiu
 	centered on that grid point
 	"""
 	# Get list based transformation vectors
-	# Here we don't scan the 14 directions but 
+	# Here we don't scan the 14 directions but
 	# rather find all grid points of the cube of radius X
 	transf_indices = list_transform_indices2(product(range(-radius,radius+1), repeat = 3), grid_shape)
 	index_point = get_index_of_coor(point, grid_min, grid_shape)
@@ -170,13 +170,13 @@ def get_local_weight(cavity_coords, grid_min, grid_shape, grid_decomposition, ra
 	"""
 	This function aims at calculating a "weight score" for a point
 	For each grid point, the cubic vicinity is investigated at radius (3)
-	At radius 3, 343 points cavity points max can be around. We first calculate 
+	At radius 3, 343 points cavity points max can be around. We first calculate
 	how many cavity points there is.
 	Then we calculate their average buriedness. The score is defined as number of
 	points * (10 ** (avg_buriedness/10))
 	On one side, this score may be used to trim cavity points: below a certain threshold
 	=> exclude the point. The lowest the score, the less cavity neighbors it has and
-	the less buried its neighbors are. The original idea was to cut "tubes" that 
+	the less buried its neighbors are. The original idea was to cut "tubes" that
 	connects two cavities, or when cavities overspan. This is slightly inspired by
 	PASS probe weight function
 	On the other side, that can also be used to identify "hotspots" for binding
@@ -188,7 +188,7 @@ def get_local_weight(cavity_coords, grid_min, grid_shape, grid_decomposition, ra
 	for point in cavity_coords:
 		index_point = get_index_of_coor(point, grid_min, grid_shape)
 		# Get list based transformation vectors
-		# Here we don't scan the 14 directions but 
+		# Here we don't scan the 14 directions but
 		# rather find all grid points of the cube of radius X
 		transf_indices = list_transform_indices2(product(range(-radius,radius+1), repeat = 3), grid_shape)
 		# Get transformation indices around index_point, excluding negative values
@@ -203,9 +203,18 @@ def get_local_weight(cavity_coords, grid_min, grid_shape, grid_decomposition, ra
 		scores.append(score)
 	return scores
 
-def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomposition, radius = 2, score = 500):
+def trim_cavity_bylocalweight(
+	cavities_coords,
+	grid_min,
+	grid_shape,
+	grid_decomposition,
+	radius = 2,
+	score = 500,
+):
 	"""
-	Function related to get_local_weight used to filter out cavity points with a score < X
+	Function related to get_local_weight used to filter out cavity
+	points with a score < X
+
 	"""
 	#trimmed_array_cavs = []
 	#for cavity in cavities_coords:
@@ -214,7 +223,7 @@ def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomp
 	to_trim = np.where(np.array(scores_cav) < score)[0]
 	trimmed_cav = np.delete(arr = cavities_coords, obj = to_trim, axis = 0)
 	#trimmed_array_cavs.append(trimmed_cav)
-	
+
 	return trimmed_cav
 
 
@@ -237,7 +246,7 @@ def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomp
 #	of 3.9A. If this criterium is not met, the grid point is assigned to the second closest
 #	protein atom neighbor (if it is not an acceptor/donor/doneptor, which would necessarily be
 #	at a larger distance than 3.9A). Same for CYS/HIS with 4.01A.
-#	The investigation is stopped at the second neighbor. If the second neigbor is still an 
+#	The investigation is stopped at the second neighbor. If the second neigbor is still an
 #	HBD/HBA/doneptor, the type "none" is assigned, as for any point not contacting the protein
 #	at 5A.
 #	Types are assigned as integers: 0 for none, and starts at 2 for aliphatic, with a final
@@ -246,7 +255,7 @@ def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomp
 #	the cavity point from the input data "cavities".
 #	"""
 #
-#	# Select the different pharmacophores 
+#	# Select the different pharmacophores
 #	aliphatic_atoms_sel = selection_protein.select("(resname ALA and (name C or name CA or name CB)) or (resname ARG and (name C or name CA or name CB or name CG or name CD)) or (resname ASN and (name C or name CA or name CB or name CG)) or (resname ASP and (name C or name CA or name CB)) or (resname CYS and (name C or name CA or name CB)) or (resname GLN and (name C or name CA or name CB or name CG or name CD)) or (resname GLU and (name C or name CA or name CB or name CG)) or (resname GLY and (name C or name CA)) or (resname HIS and (name C or name CA or name CB)) or (resname ILE and (sidechain or name C or name CA)) or (resname LEU and (sidechain or name C or name CA)) or (resname LYS and (name C or name CA or name CB or name CG or name D)) or (resname MET and (sidechain or name C or name CA)) or (resname PHE and (name C or name CA or name CB)) or (resname PRO and (name C or name CA or name CD or name CB or name CG)) or (resname SER and (name C or name CA or name CG)) or (resname THR and (name C or name CA or name CB or name CG2)) or (resname TRP and (name C or name CA or name CB)) or (resname TYR and (name C or name CA or name CB)) or (resname VAL and (sidechain or name C or name CA))")
 #	aromatic_atoms_sel = selection_protein.select("(resname PHE and (name CG or name CD1 or name CE1 or name CZ or name CE2 or name CD2)) or (resname TYR and (name CG or name CD1 or name CE1 or name CZ or name CE2 or name CD2)) or (resname TRP and (name CG or name CD1 or name CE2 or name CD2 or name CE3 or name CZ3 or name CH2 or name CZ2))")
 #	donor_atoms_sel = selection_protein.select("(resname TRP and (name NE1)) or (name N and not resname PRO)")
@@ -258,13 +267,13 @@ def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomp
 #	his_atoms_sel = selection_protein.select("(resname HIS and (name CG or name ND1 or name CD2 or name NE2 or name CE1))")
 #	metal_atoms_sel = selection_protein.select("resname CO or resname ZN or resname MG or resname FE or resname GA or resname IN or resname NI or resname RE or resname PB or resname AS or resname BE or resname CU or resname V or resname AL or resname MN or resname CA")
 #
-#	
+#
 #	# Store their pharmacophore types as their indices in an array
 #	arrays_prot_pharmatypes = np.zeros(len(selection_coords), dtype="i")
 #	# getIndices from prody only returns the original indices
-#	# from the PDB file and not 
+#	# from the PDB file and not
 #	list_protindices = selection_protein.getIndices()
-#	
+#
 #	arrays_prot_pharmatypes[np.in1d(list_protindices, aliphatic_atoms_sel.getIndices(), assume_unique=True).nonzero()[0]] = 2
 #	# Bugged once because no aromatic atoms?
 #	try:
@@ -305,13 +314,13 @@ def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomp
 #		arrays_prot_pharmatypes[np.in1d(list_protindices, metal_atoms_sel.getIndices(), assume_unique=True).nonzero()[0]] = 11
 #	except:
 #		None
-#	# Identify grid points within distance of 
+#	# Identify grid points within distance of
 #	# protein points with the aforementioned grid types
 #	cav_properties = []
 #	for cav in cavities:
 #		# Generate a list of 0 corresponding to cavity point indices
 #		cav_indices = np.zeros(shape=len(cav), dtype = "i")
-#		
+#
 #		tree = cKDTree(selection_coords, compact_nodes = False, balanced_tree = False)
 #		# Here we find the list of the two closest neighbors
 #		# in case the first one is HBD/HBA/etc and falls after the other
@@ -329,7 +338,7 @@ def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomp
 #					type2 = arrays_prot_pharmatypes[prot_indices[idx][1]]
 #				except:
 #					type2 = 0
-#				
+#
 #				if type1 != 2 and type1 != 3 and type1 != 4 and type1 != 9 and type1 != 10:
 #					cav_indices[idx] = type1
 #				else:
@@ -354,10 +363,10 @@ def trim_cavity_bylocalweight(cavities_coords, grid_min, grid_shape, grid_decomp
 #								if type2 != 2 and type2 != 3 and type2 != 4 and type2 !=9 and type2 !=10:
 #									cav_indices[idx] = type2
 #								else:
-#									cav_indices[idx] = 0 
-#	
+#									cav_indices[idx] = 0
+#
 #			idx+=1
-#	
+#
 #		cav_properties.append(cav_indices)
 #
 #	return cav_properties

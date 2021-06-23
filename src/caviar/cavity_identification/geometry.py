@@ -12,7 +12,7 @@ __all__ = ['Point', 'Vector', 'SetOfPoints', 'calc_moments_of_inertia', 'calc_as
             'calc_inertialshapefactor', 'rotate_pdb_via_prody']
 
 class Point(object):
-    
+
     """
     A class for working with 3D points.
     Takes as argument a np.array() (3D point, .reshape(-1,3))
@@ -85,7 +85,7 @@ class Vector(object):
 
     """
     A class for working with vectors.
-    Takes as argument a np.array() (3D vector) 
+    Takes as argument a np.array() (3D vector)
     """
 
     def __init__(self, vector):
@@ -116,7 +116,7 @@ class Vector(object):
         return norm.squeeze()
 
     def angle(self, v, oriented = True):
-        """ 
+        """
         Returns the angle (in degree) between the vectors
         self and v. Please specify if oriented.
         """
@@ -136,7 +136,7 @@ class Vector(object):
 
 
 class SetOfPoints(object):
-    
+
     """
     A class for working with numpy.array(), i.e., a 3D coordinate set.
     Is-a numpy.array(), and can take as input a getCoordsets() from
@@ -203,7 +203,7 @@ class SetOfPoints(object):
 
     def dist_allvall(self, setofcoord):
         """
-        Returns the distance of all coordinates of self versus all 
+        Returns the distance of all coordinates of self versus all
         coordinates of setofcoords.
         May overseed the 2 functions above
         """
@@ -248,9 +248,9 @@ class SetOfPoints(object):
 
 def calc_moments_of_inertia(coords, origin):
     """
-    
+
     Returns moments of inertia centered on origin
-    If origin is the center of the coords, then 
+    If origin is the center of the coords, then
     they are the PMI
     Else, they are moments of inertia centered at origin (well...)
     """
@@ -269,7 +269,7 @@ def calc_moments_of_inertia(coords, origin):
                         [xz, yz, zz]])
     moments, axes = LA.eig(matrix)
     return np.sort(moments)  # IA, IB, IC
-    
+
 def calc_asphericity(IA, IB, IC):
     """
     Anisometry descriptor for the deviation from the spherical shape
@@ -302,7 +302,7 @@ def calc_inertialshapefactor(IA, IB, IC):
 
 
 
-###################### HEREON SOME FUNCTION TO VALIDATE THE ALGORITHM, NOT TO 
+###################### HEREON SOME FUNCTION TO VALIDATE THE ALGORITHM, NOT TO
 ########### BE USED ROUTINELY
 ##################### ie rotate coordinates, with or without prody
 ######### prody is useful because it can transform the whole object, keeping
@@ -320,7 +320,7 @@ def rotateY3D(coords, theta = 3.1415926):
 
     sin_t = np.sin(theta)
     cos_t = np.cos(theta)
-    
+
     rotated = np.array([coords[:,0]*cos_t - coords[:,2]*sin_t, coords[:,1], coords[:,2]*cos_t + coords[:,0]*sin_t]).T
 
     return rotated
@@ -330,7 +330,7 @@ def getrotationmatrix_Z3D(theta):
     Function used to investigate the influence of the grid orientation around the protein
     in the cavity detection/comparison algorithm.
     It generates the rotation matrix (3,3) around the Z axis
-    This one uses degrees as input instead of radianss 
+    This one uses degrees as input instead of radianss
     Source: https://en.wikipedia.org/wiki/Rotation_matrix
     To be used with prody_parser.measure import transform, unlike the previous function which works on coordinates sets
     """

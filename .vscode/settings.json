@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "/home/atarzia/anaconda3/envs/caviar_dev/bin/python"
+    "python.pythonPath": "/home/atarzia/anaconda3/envs/caviar_dev/bin/python",
+    "restructuredtext.languageServer.disabled": true
 }

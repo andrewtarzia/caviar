@@ -37,7 +37,9 @@ def build_grid(atomgroup, boxmargin = 2.0, gridspace = 1.0, size_limit = 1000000
 	# 10m grid points is about 13 gb in memory max use
 		grid_size = len(grid_x)*len(grid_y)*len(grid_z)
 		if grid_size > int(size_limit):
-			return None, None, None
+			raise ValueError(
+				'Size limit reached in grid building!!'
+			)
 	# Combine the 3 lists into a grid
 	grid_noform = np.meshgrid(grid_x, grid_y, grid_z, indexing = "ij")
 	# There may be a better way to do this
@@ -52,7 +54,7 @@ def build_grid(atomgroup, boxmargin = 2.0, gridspace = 1.0, size_limit = 1000000
 
 def get_index_of_coor(point_coor, grid_min, grid_shape, gridspace = 1.0):
 	"""
-	Returns the index in the grid object corresponding to a 
+	Returns the index in the grid object corresponding to a
 	grid point coordinate
 	Should double check the effect of a grid space which is not 1A
 	Useful for finding characteristics of neighbors of a point
@@ -74,7 +76,7 @@ def get_index_of_coor_list(point_coor_list, grid_min, grid_shape, gridspace = 1.
 	positions = (point_coor_list - grid_min) * 1/gridspace
 	tmpindices = positions[:,0]*grid_shape[1]*grid_shape[2] + positions[:,1]*grid_shape[2] + positions[:,2]
 	indices = np.array(tmpindices[tmpindices >= 0], dtype='i')
-	
+
 	return indices
 
 
@@ -82,7 +84,7 @@ def list_transform_indices(transform_vectors, grid_shape):
 	"""
 	Equivalent of get_index_of_coor to find the indice of a transformation
 	vector in relative space without going through cartesian coordinates space
-	Used in set_burial_gridscan, notably. 
+	Used in set_burial_gridscan, notably.
 	Returns a list of lists
 	"""
 	transform_ind = []
@@ -108,7 +110,7 @@ def get_transformation_vectors(radius_cube, startingpoint = 3):
 	a grid point. Generates a list of 14 lists, each sublist containing the transformation vectors
 	of 1 direction between 3A and radius_cube A.
 	Deletion of mention to gridspace, because here it is not needed. We can to scan between
-	3A and xA for protein points, there is no point in thinking in "grid points" rather than 
+	3A and xA for protein points, there is no point in thinking in "grid points" rather than
 	distance
 	"""
 	directions = [[0, 0, 1], [0, 1, 0], [1, 0, 0], [1, 1, 1], [-1, 1, 1], [1, -1, 1], [1, 1, -1],
@@ -119,7 +121,7 @@ def get_transformation_vectors(radius_cube, startingpoint = 3):
 		for rad in range(startingpoint, radius_cube+1):
 			tmplist.append([rad*coor[x] for x in range(0,3)])
 		biglist.append(tmplist)
-	
+
 	transform_vectors = np.array(biglist)
 	return transform_vectors
 
@@ -135,7 +137,7 @@ def get_transformation_vectors(radius_cube, startingpoint = 3):
 # 	"""
 # 	whoinrange = np.nonzero(all_dist < dist_range)
 # 	return whoinrange
-# 
+#
 # def build_cube(point_coor, grid_min, grid_shape, onion_level = 1, gridspace = 1.0):
 # 	"""
 # 	Gets the list of grid points of the cube around a grid point
@@ -165,6 +167,6 @@ def get_transformation_vectors(radius_cube, startingpoint = 3):
 # 	nones_and_ori = np.append(nones, [oripoint_index])
 # 	cube_indices = np.delete(arr_cube_indices, nones_and_ori, axis=0)
 # 	cleancube = np.delete(cube, nones_and_ori, axis=0)
-# 
+#
 # 	return cube_indices, cleancube
-# 
+#
